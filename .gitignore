@@ -6,3 +6,7 @@
 !README.md
 !/legacy/
 !requirements.txt
+!fourchan_downloader.py
+!gui.py
+!build_exe.py
+!gallery_generator.py
