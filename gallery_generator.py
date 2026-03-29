@@ -14,6 +14,10 @@ def generate_gallery(download_root, title="4chan Downloads"):
     
     # Supported extensions
     exts = ('.jpg', '.jpeg', '.png', '.gif', '.webm', '.mp4', '.pdf')
+    video_exts = ('.webm', '.mp4')
+    
+    def is_video(path):
+        return path.suffix.lower() in video_exts
     
     # Find all images recursively
     for img_path in root.rglob("*"):
@@ -62,6 +66,7 @@ def generate_gallery(download_root, title="4chan Downloads"):
                 'poster_name': str(metadata.get('poster_name') or ''),
                 'post_number': str(metadata.get('post_number') or ''),
                 'extension': str(metadata.get('extension') or img_path.suffix[1:]),
+                'is_video': is_video(img_path),
                 'tags': tags
             })
     
@@ -235,12 +240,37 @@ def generate_gallery(download_root, title="4chan Downloads"):
             box-shadow: 0 20px 40px rgba(0,0,0,0.4);
         }}
 
+        .card video {{
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.6s ease;
+        }}
+
+        .card:hover video {{
+            transform: scale(1.05);
+        }}
+
+        .video-indicator {{
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            pointer-events: none;
+        }}
+
         .img-container {{
             width: 100%;
             aspect-ratio: 16/10;
             overflow: hidden;
             cursor: zoom-in;
             background: #09090b;
+            position: relative;
         }}
 
         .card img {{
@@ -350,6 +380,14 @@ def generate_gallery(download_root, title="4chan Downloads"):
             box-shadow: 0 30px 60px rgba(0,0,0,0.8);
         }}
 
+        .modal video {{
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.8);
+        }}
+
         [hidden] {{ display: none !important; }}
     </style>
 </head>
@@ -377,8 +415,9 @@ def generate_gallery(download_root, title="4chan Downloads"):
                  data-board="{esc_attr(img["board"])}"
                  data-all="{esc_attr(img["filename"])} {esc_attr(img["board"])} {esc_attr(img["thread_subject"])} {esc_attr(img["poster_name"])} {" ".join(img["tags"])}">
                 
-                <div class="img-container" onclick="openModal('{esc_attr(img["path"])}')">
-                    <img src="{esc_attr(img["path"])}" loading="lazy" alt="{esc_attr(img["filename"])}">
+            <div class="img-container" onclick="openModal('{esc_attr(img["path"])}', {str(img['is_video']).lower()})">
+                    {'<video src="' + esc_attr(img["path"]) + '" preload="metadata" muted loop playsinline></video>' if img['is_video'] else '<img src="' + esc_attr(img["path"]) + '" loading="lazy" alt="' + esc_attr(img["filename"]) + '">'}
+                    {('<span class="video-indicator">VIDEO</span>' if img['is_video'] else '')}
                 </div>
                 
                 <div class="card-body">
@@ -407,7 +446,8 @@ def generate_gallery(download_root, title="4chan Downloads"):
     </div>
 
     <div class="modal" id="modal" onclick="closeModal()">
-        <img id="modalImg" src="">
+        <img id="modalImg" src="" hidden>
+        <video id="modalVideo" controls autoplay hidden></video>
     </div>
 
     <script>
@@ -459,15 +499,32 @@ def generate_gallery(download_root, title="4chan Downloads"):
 
         searchInput.addEventListener('input', filter);
 
-        function openModal(src) {{
+        function openModal(src, isVideo=false) {{
             const modal = document.getElementById('modal');
             const modalImg = document.getElementById('modalImg');
-            modalImg.src = src;
+            const modalVideo = document.getElementById('modalVideo');
+            
+            if (isVideo) {{
+                modalImg.hidden = true;
+                modalVideo.hidden = false;
+                modalVideo.src = src;
+                modalVideo.load();
+                modalVideo.play().catch(() => {{}});
+            }} else {{
+                modalVideo.hidden = true;
+                modalVideo.pause();
+                modalVideo.src = '';
+                modalImg.hidden = false;
+                modalImg.src = src;
+            }}
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
         }}
 
         function closeModal() {{
+            const modalVideo = document.getElementById('modalVideo');
+            modalVideo.pause();
+            modalVideo.src = '';
             document.getElementById('modal').style.display = 'none';
             document.body.style.overflow = 'auto';
         }}
@@ -495,3 +552,43 @@ if __name__ == "__main__":
         print(f"Gallery generated: {result}")
     else:
         print("Usage: python gallery_generator.py <download_path> [title]")
+
+
+def generate_thread_galleries(download_root):
+    """Generate a gallery.html in each thread folder"""
+    root = Path(download_root)
+    if not root.exists():
+        raise Exception(f"Download directory not found: {root}")
+    
+    generated = []
+    
+    # Find all board directories
+    for board_dir in root.iterdir():
+        if not board_dir.is_dir():
+            continue
+        
+        # Find all thread directories inside each board
+        for thread_dir in board_dir.iterdir():
+            if not thread_dir.is_dir():
+                continue
+            
+            # Check if this thread folder has any media files
+            has_media = any(
+                f.suffix.lower() in ('.jpg', '.jpeg', '.png', '.gif', '.webm', '.mp4')
+                for f in thread_dir.iterdir()
+                if f.is_file()
+            )
+            
+            if has_media:
+                # Get thread name for the title
+                thread_name = thread_dir.name
+                title = f"/{board_dir.name}/ - {thread_name}"
+                
+                try:
+                    # Generate gallery for this specific thread folder
+                    gallery_path = generate_gallery(thread_dir, title)
+                    generated.append(gallery_path)
+                except Exception as e:
+                    print(f"Error generating gallery for {thread_dir}: {e}")
+    
+    return generated

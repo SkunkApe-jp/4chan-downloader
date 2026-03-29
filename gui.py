@@ -345,12 +345,16 @@ class FourChanGUI:
     def generate_gallery(self):
         try:
             import gallery_generator
-            gallery_path = gallery_generator.generate_gallery(self.downloader.download_root, "4chan Downloads")
-            messagebox.showinfo("Gallery Generated", f"Gallery generated at:\n{gallery_path}")
-            import os
-            os.startfile(gallery_path)
+            gallery_paths = gallery_generator.generate_thread_galleries(self.downloader.download_root)
+            if gallery_paths:
+                messagebox.showinfo("Galleries Generated", f"Generated {len(gallery_paths)} thread galleries")
+                # Open the first gallery
+                import os
+                os.startfile(gallery_paths[0])
+            else:
+                messagebox.showinfo("No Galleries", "No thread folders with media found.")
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to generate gallery: {str(e)}")
+            messagebox.showerror("Error", f"Failed to generate galleries: {str(e)}")
 
 if __name__ == "__main__":
     root = tk.Tk()
