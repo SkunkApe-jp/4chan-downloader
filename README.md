@@ -30,6 +30,8 @@ For the best experience, the application should be built into a standalone execu
     pip install -r requirements.txt
     ```
 2.  **Build the Standalone**:
+    > [!TIP]
+    > To give your downloader a custom look, please download a nice `.ico` icon, rename it to `favicon.ico`, and place it in the root folder before building!
     ```bash
     python build_exe.py
     ```

@@ -37,7 +37,7 @@ def build_exe():
         '--onefile',           # Single executable file
         '--windowed',          # GUI application (no console)
         '--name', 'FourChanDownloader',
-        '--icon', '4chin.ico',
+        '--icon', 'favicon.ico',
         '--add-data', 'fourchan_downloader.py;.',
         '--add-data', 'gallery_generator.py;.',
         '--clean',
